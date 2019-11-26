@@ -2,7 +2,10 @@ from copy import deepcopy
 import time
 import os
 import stat
-from typing import Optional, List
+import json
+from typing import Optional, List, Union
+import urllib.request as request
+from .filelock import FileLock
 
 class ETConf:
     def __init__(self, *, defaults, config_dir, preset_config_url):
@@ -10,7 +13,7 @@ class ETConf:
         self._config_dir = config_dir
         self._config = deepcopy(self._defaults)
         self._preset_config = None
-        self._preset_config_url = None
+        self._preset_config_url = preset_config_url
     def set_config(self, preset=None, **kwargs):
         if preset is not None:
             self._load_preset_config_if_needed()
@@ -21,7 +24,16 @@ class ETConf:
             if v is not None:
                 self._config[k] = deepcopy(v)
     def get_config(self):
-        return deepcopy(self._config)
+        ret = dict()
+        for k, v in self._config.items():
+            if type(v) == dict and 'env' in v:
+                env0 = v['env']
+                if env0 in os.environ:
+                    v = os.environ[env0]
+                else:
+                    raise Exception('You need to set the {} environment variable'.format(env0))
+            ret[k] = deepcopy(v)
+        return ret
     def _load_preset_config_if_needed(self):
         if self._preset_config is not None:
             return
@@ -29,8 +41,8 @@ class ETConf:
             os.mkdir(self._config_dir)
         config_path = os.path.join(self._config_dir, 'preset_configuration.json')
         try_download = True
+        obj = None
         if os.path.exists(config_path):
-            obj = None
             try:
                 obj0 = _read_json_file(config_path)
                 if obj0 and obj0.get('configurations'):
@@ -40,17 +52,15 @@ class ETConf:
             if obj is not None and _file_age_sec(config_path) <= 60:
                 try_download = False
         if try_download and self._preset_config_url:
-            url = self._load_preset_config_if_needed
             try:
-                obj0 = _http_get_json(url)
+                obj0 = _http_get_json(self._preset_config_url)
                 if obj0 and obj0.get('configurations', None):
                     obj = obj0
                     _write_json_file(obj, config_path)
                 else:
-                    print(obj0.get('error', ''))
-                    print('Warning: Problem loading preset configurations from: {}'.format(url))
+                    print('Warning: Problem loading preset configurations from: {}'.format(self._preset_config_url))
             except:
-                print('Warning: unable to load preset configurations from: {}'.format(url))
+                print('Warning: unable to load preset configurations from: {}'.format(self._preset_config_url))
         if obj is None:
             raise Exception('Unable to load preset configurations')
         self._preset_config = obj
@@ -90,3 +100,26 @@ def _http_get_json(url: str, use_cache_on_success: bool=False, verbose: Optional
         if ret['success']:
             _http_get_cache[url] = ret
     return ret
+
+def _read_json_file(path: str, *, delete_on_error: bool=False) -> Union[dict, None]:
+    with FileLock(path + '.lock', exclusive=False):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except:
+            if delete_on_error:
+                print('Warning: Unable to read or parse json file. Deleting: ' + path)
+                try:
+                    os.unlink(path)
+                except:
+                    print('Warning: unable to delete file: ' + path)
+                    pass
+            else:
+                print('Warning: Unable to read or parse json file: ' + path)
+            return None
+
+
+def _write_json_file(obj: object, path: str) -> None:
+    with FileLock(path + '.lock', exclusive=True):
+        with open(path, 'w') as f:
+            json.dump(obj, f)
