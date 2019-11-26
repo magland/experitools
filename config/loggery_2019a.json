@@ -2,10 +2,14 @@
     "configurations": {
         "default_readonly": {
             "url": "mongodb://readonly:${password}@ds249308-a0.mlab.com:49308,ds249308-a1.mlab.com:49308/loggery?replicaSet=rs-ds249308",
+            "database": "loggery",
+            "collection": "default",
             "password": "SJP3V8jIzmbt"
         },
         "default_readwrite": {
             "url": "mongodb://readwrite:${password}@ds249308-a0.mlab.com:49308,ds249308-a1.mlab.com:49308/loggery?replicaSet=rs-ds249308",
+            "database": "loggery",
+            "collection": "default",
             "password": {"env": "LOGGERY_DEFAULT_PASSWORD"}
         }
     }
