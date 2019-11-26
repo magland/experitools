@@ -11,6 +11,12 @@
             "database": "loggery",
             "collection": "default",
             "password": {"env": "LOGGERY_DEFAULT_PASSWORD"}
-        }
+        },
+        "local": {
+            "url": "mongodb://localhost:27017/",
+            "database": "loggery",
+            "collection": "default",
+            "password": ""
+        },
     }
 }
