@@ -17,6 +17,6 @@
             "database": "loggery",
             "collection": "default",
             "password": ""
-        },
+        }
     }
 }
